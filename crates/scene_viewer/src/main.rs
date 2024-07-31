@@ -9,10 +9,11 @@ use parking_lot::RwLock;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalPosition,
-    event::WindowEvent,
-    event_loop::{ControlFlow, EventLoop},
+    event::{WindowEvent, StartCause},
+    event_loop::{ControlFlow, EventLoop, ActiveEventLoop},
     window::{Window, WindowAttributes},
 };
+use rand::prelude::*;
 
 use vide::{Quad, Scene, WinitRenderer};
 
@@ -27,6 +28,7 @@ struct App {
     scene: Arc<RwLock<Scene>>,
     renderer: Option<WinitRenderer>,
     mouse_pos: PhysicalPosition<f64>,
+    rng: ThreadRng,
 }
 
 impl App {
@@ -35,17 +37,31 @@ impl App {
             scene,
             renderer: None,
             mouse_pos: PhysicalPosition::default(),
+            rng: rand::thread_rng(),
         }
     }
 }
 
 impl ApplicationHandler for App {
+
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        profiling::scope!("new_events");
+        
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        profiling::scope!("about_to_wait");
+        let scene = self.scene.read();
+    }
+
     fn window_event(
         &mut self,
         event_loop: &winit::event_loop::ActiveEventLoop,
         _window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
+
+        profiling::scope!("window_event");
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::CursorMoved { position, .. } => {
@@ -53,19 +69,38 @@ impl ApplicationHandler for App {
                 self.renderer.as_ref().unwrap().window.request_redraw();
             }
             WindowEvent::RedrawRequested => {
-                let mut scene = self.scene.read().clone();
-                scene.add_layer(Default::default());
-                scene.background(Srgba::new(0., 0., 0., 0.));
-                scene.add_quad(
-                    Quad::new(
-                        Point2::new(self.mouse_pos.x as f32, self.mouse_pos.y as f32),
-                        Size2::new(100., 100.),
-                        Srgba::new(0.5, 0.5, 1., 0.5),
-                    )
-                    .with_blur(5.0),
-                );
+                profiling::scope!("RedrawRequested");
+                let scene = self.scene.read();
+                // let mut scene = self.scene.read().clone();
+                // scene.add_layer(Default::default());
+                // scene.background(Srgba::new(0., 0., 0., 0.));
+                // scene.add_quad(
+                //     Quad::new(
+                //         Point2::new(self.mouse_pos.x as f32, self.mouse_pos.y as f32),
+                //         Size2::new(100., 100.),
+                //         Srgba::new(0.5, 0.5, 1., 0.5),
+                //     )
+                //     .with_blur(5.0),
+                // );
 
+                use std::{thread, time::Duration};
+                // {
+                //     profiling::scope!("random sleep");
+                //     use std::{thread, time::Duration};
+                //     thread::sleep(Duration::from_micros(self.rng.gen_range(0..2500)));
+                // }
+                // {
+                //     // profiling::scope!("simulating delay");
+                //     // thread::sleep(Duration::from_micros(10000));
+                // }
+                //
                 self.renderer.as_mut().unwrap().draw(&scene);
+                self.renderer.as_ref().unwrap().window.request_redraw();
+                // {
+                //     profiling::scope!("random sleep");
+                //     use std::{thread, time::Duration};
+                //     thread::sleep(Duration::from_micros(self.rng.gen_range(0..2500)));
+                // }
             }
             WindowEvent::Resized(new_size) => {
                 self.renderer
@@ -78,6 +113,7 @@ impl ApplicationHandler for App {
     }
 
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        profiling::scope!("resumed");
         if self.renderer.is_none() {
             let attributes = WindowAttributes::default();
             let window = Arc::new(
@@ -92,10 +128,12 @@ impl ApplicationHandler for App {
     }
 
     fn suspended(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
+        profiling::scope!("suspended");
         self.renderer.as_mut().unwrap().suspended();
     }
 
     fn user_event(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop, _event: ()) {
+        profiling::scope!("user_event");
         self.renderer.as_ref().unwrap().window.request_redraw();
     }
 }
@@ -104,7 +142,7 @@ fn main() {
     env_logger::init();
 
     let event_loop = EventLoop::new().expect("Couldn't create event loop");
-    event_loop.set_control_flow(ControlFlow::Poll);
+    event_loop.set_control_flow(ControlFlow::Wait);
 
     let scene: Arc<RwLock<Scene>> = Arc::new(RwLock::new(Scene::new()));
     let scene_path = Arc::from(Path::new("./scene.json"));

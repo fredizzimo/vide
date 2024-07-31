@@ -43,7 +43,7 @@ impl Renderer {
             .request_device(
                 &DeviceDescriptor {
                     required_features: Features::PUSH_CONSTANTS
-                        | Features::SPIRV_SHADER_PASSTHROUGH
+                        //| Features::SPIRV_SHADER_PASSTHROUGH
                         | Features::VERTEX_WRITABLE_STORAGE
                         | Features::CLEAR_TEXTURE
                         | GpuProfiler::ALL_WGPU_TIMER_FEATURES,
@@ -261,10 +261,16 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, scene: &Scene, frame: &Texture) {
+    pub fn render(&mut self, scene: &Scene, frame: &Texture, frame_view: &TextureView) -> bool {
         profiling::scope!("Render Frame");
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
         if self.width == 0 || self.height == 0 {
-            return;
+            self.queue.submit(Some(encoder.finish()));
+            return true;
         }
 
         if let Some(shaders) = self.shader_loader.try_reload(&self.device) {
@@ -281,7 +287,7 @@ impl Renderer {
             }
         }
 
-        let frame_view = frame.create_view(&Default::default());
+        //let frame_view = frame.create_view(&Default::default());
 
         let constants = ShaderConstants {
             surface_size: vec2(self.width as f32, self.height as f32),
@@ -292,11 +298,6 @@ impl Renderer {
             drawable.start_frame();
         }
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
         let mut first = true;
         for layer in scene.layers.iter() {
             profiling::scope!("Layer");
@@ -322,6 +323,7 @@ impl Renderer {
         }
         self.profiler.resolve_queries(&mut encoder);
         self.queue.submit(Some(encoder.finish()));
+        true
     }
 
     pub fn draw_mask(

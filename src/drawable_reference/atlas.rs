@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, fmt::Debug};
 
 use etagere::{euclid, AllocId, AtlasAllocator};
 use glamour::{point2, size2, Box2, Size2};
@@ -29,7 +29,7 @@ pub enum ConstructResult<UserData> {
     Failed,
 }
 
-impl<Key: Eq + Hash, UserData: Clone> Atlas<Key, UserData> {
+impl<Key: Eq + Hash + Debug, UserData: Clone> Atlas<Key, UserData> {
     pub fn new(Renderer { device, .. }: &Renderer, name: &str) -> Self {
         let texture = device.create_texture(&TextureDescriptor {
             label: Some(&format!("{} atlas texture", name)),
@@ -78,6 +78,7 @@ impl<Key: Eq + Hash, UserData: Clone> Atlas<Key, UserData> {
             // Not in the atlas yet. Attempt to construct an image to upload
             None => {
                 profiling::scope!("Atlas upload");
+                log::trace!("Atlas upload {:#?}", key);
 
                 let (user_data, image_data, image_size) = match construct_image() {
                     ConstructResult::Constructed(user_data, image_data, image_size) => {
