@@ -1,6 +1,6 @@
 use glam::*;
 use glamour::{Point2, Rect, Size2};
-use palette::Srgba;
+use palette::{stimulus::IntoStimulus, Srgba};
 use wgpu::*;
 
 use crate::{
@@ -69,27 +69,36 @@ impl Drawable for QuadState {
         layer: &LayerContents,
     ) {
         let mut quads = Vec::new();
-        if layer.background_color.is_some() || layer.background_blur_radius != 0.0 {
-            quads.push(
-                Quad::new(
-                    clip.map(|clip| clip.origin)
-                        .unwrap_or(Point2::<u32>::ZERO)
-                        .try_cast()
-                        .unwrap(),
-                    clip.map(|clip| clip.size.try_cast().unwrap())
-                        .unwrap_or(Size2::new(
-                            constants.surface_size.x,
-                            constants.surface_size.y,
-                        )),
-                    layer.background_color.unwrap_or(Srgba::new(1., 1., 1., 1.)),
-                )
-                .with_background_blur(layer.background_blur_radius)
-                .to_instanced(),
-            );
+        if self.quad_buffer.frame_count == 1 {
+            if layer.background_color.is_some() || layer.background_blur_radius != 0.0 {
+                quads.push(
+                    Quad::new(
+                        clip.map(|clip| clip.origin)
+                            .unwrap_or(Point2::<u32>::ZERO)
+                            .try_cast()
+                            .unwrap(),
+                        clip.map(|clip| clip.size.try_cast().unwrap())
+                            .unwrap_or(Size2::new(
+                                constants.surface_size.x,
+                                constants.surface_size.y,
+                            )),
+                        layer.background_color.unwrap_or(Srgba::new(1., 1., 1., 1.)),
+                    )
+                    .with_background_blur(layer.background_blur_radius)
+                    .to_instanced(),
+                );
+            }
+            {
+                profiling::scope!("to_instanced");
+                quads.extend(layer.quads.iter().map(|quad| quad.to_instanced()));
+            }
+            self.quad_buffer.upload(quads, queue);
+        } else {
+            if layer.background_color.is_some() || layer.background_blur_radius != 0.0 {
+                self.quad_buffer.instance_count += 1;
+            }
+            self.quad_buffer.instance_count += layer.quads.len() as u32;
         }
-
-        quads.extend(layer.quads.iter().map(|quad| quad.to_instanced()));
-        self.quad_buffer.upload(quads, queue);
         self.quad_buffer.draw(render_pass);
     }
 }

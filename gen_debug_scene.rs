@@ -7,6 +7,7 @@
 //! serde = "1.0.196"
 //! serde_derive = "1.0.196"
 //! serde_json = "1.0.113"
+//! rand = "0.8.5"
 //! ```
 extern crate glamour;
 extern crate palette;
@@ -17,11 +18,15 @@ extern crate vide;
 use glamour::{point2, size2, vec2, Rect};
 use palette::Srgba;
 use parley::style::{FontStack, StyleProperty};
+use rand::prelude::*;
 
 use vide::*;
 
 fn main() {
     let mut scene = Scene::new();
+
+    let mut rng = rand::thread_rng();
+
     let mut shaper = Shaper::new();
     shaper.push_default(StyleProperty::FontStack(FontStack::Source("monospace")));
     shaper.push_default(StyleProperty::Brush(Srgba::new(0., 0., 0., 1.)));
@@ -87,6 +92,16 @@ fn main() {
     }
 
     scene.set_mask(mask_layer);
+
+    let mut layer = Layer::new();
+    for i in 0..100000 {
+        layer.add_quad(Quad::new(
+            point2!(rng.gen_range(0.0..500.0), rng.gen_range(0.0..500.0)),
+            size2!(rng.gen_range(1.0..50.0), rng.gen_range(1.0..50.0)),
+            Srgba::new(rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0), 0.5),
+        ));
+    }
+    scene.add_layer(layer);
 
     // Serialize the scene to a json string and write the string to ./scene.json
     let scene_json = serde_json::to_string_pretty(&scene).unwrap();

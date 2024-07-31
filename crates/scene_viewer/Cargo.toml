@@ -17,3 +17,6 @@ notify = { workspace = true }
 parking_lot = "0.12.1"
 rust-embed = { workspace = true }
 env_logger = "0.10.0"
+profiling = { version = "1.0.15", features = ["profile-with-tracy"] }
+tracy-client = "=0.17.0"
+rand = "0.8.5"

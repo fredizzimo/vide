@@ -71,7 +71,7 @@ impl OffscreenRenderer {
         };
         let texture = self.renderer.device.create_texture(&texture_desc);
 
-        self.renderer.render(scene, &texture);
+        //self.renderer.render(scene, &texture);
 
         let mut encoder = self
             .renderer

@@ -13,6 +13,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowAttributes},
 };
+use rand::prelude::*;
 
 use vide::{Quad, Scene, WinitRenderer};
 
@@ -27,6 +28,7 @@ struct App {
     scene: Arc<RwLock<Scene>>,
     renderer: Option<WinitRenderer>,
     mouse_pos: PhysicalPosition<f64>,
+    rng: ThreadRng,
 }
 
 impl App {
@@ -35,6 +37,7 @@ impl App {
             scene,
             renderer: None,
             mouse_pos: PhysicalPosition::default(),
+            rng: rand::thread_rng(),
         }
     }
 }
@@ -65,7 +68,19 @@ impl ApplicationHandler for App {
                     .with_blur(5.0),
                 );
 
+                use std::{thread, time::Duration};
+                // {
+                //     profiling::scope!("random sleep");
+                //     use std::{thread, time::Duration};
+                //     thread::sleep(Duration::from_micros(self.rng.gen_range(0..3000)));
+                // }
+                {
+                    profiling::scope!("simulating delay");
+                    //thread::sleep(Duration::from_micros(3000));
+                }
+
                 self.renderer.as_mut().unwrap().draw(&scene);
+                self.renderer.as_ref().unwrap().window.request_redraw();
             }
             WindowEvent::Resized(new_size) => {
                 self.renderer

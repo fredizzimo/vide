@@ -33,6 +33,8 @@ impl WinitRenderer {
 
         let swapchain_capabilities = surface.get_capabilities(&adapter);
         let swapchain_format = swapchain_capabilities.formats[0];
+        let swapchain_format = TextureFormat::Rgba8UnormSrgb;
+        println!("{:#?}", swapchain_format);
 
         let size = window.inner_size();
         let surface_config = SurfaceConfiguration {
@@ -41,9 +43,9 @@ impl WinitRenderer {
             width: size.width,
             height: size.height,
             present_mode: PresentMode::Immediate,
-            alpha_mode: swapchain_capabilities.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
+            alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            view_formats: vec![swapchain_format],
+            desired_maximum_frame_latency: 3,
         };
 
         let shaders_reloaded = {
@@ -115,18 +117,29 @@ impl WinitRenderer {
 
         match surface.get_current_texture() {
             Ok(frame) => {
-                self.renderer.render(scene, &frame.texture);
 
-                {
+                let frame_view = frame.texture.create_view(&wgpu::TextureViewDescriptor {
+                    format: Some(self.surface_config.view_formats[0]),
+                    ..wgpu::TextureViewDescriptor::default()
+                });
+                //self.window.pre_present_notify();
+                if self.renderer.render(scene, &frame.texture, &frame_view) {
                     profiling::scope!("present");
                     frame.present();
                 }
 
-                self.renderer.profiler.end_frame().unwrap();
+                {
+                    profiling::scope!("profiler::end_frame");
+                    self.renderer.profiler.end_frame().unwrap();
+                }
 
-                self.renderer
-                    .profiler
-                    .process_finished_frame(self.renderer.queue.get_timestamp_period());
+                {
+                    profiling::scope!("profiler::process_finished_frame");
+                    self.renderer
+                        .profiler
+                        .process_finished_frame(self.renderer.queue.get_timestamp_period());
+                }
+                profiling::finish_frame!();
 
                 true
             }
@@ -140,10 +153,10 @@ impl WinitRenderer {
     }
 
     fn update_surface(&mut self, surface: Surface<'static>) {
-        let swapchain_capabilities = surface.get_capabilities(&self.renderer.adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
-        self.surface_config.format = swapchain_format;
-        self.surface_config.alpha_mode = swapchain_capabilities.alpha_modes[0];
+        // let swapchain_capabilities = surface.get_capabilities(&self.renderer.adapter);
+        // let swapchain_format = swapchain_capabilities.formats[0];
+        // self.surface_config.format = swapchain_format;
+        // self.surface_config.alpha_mode = swapchain_capabilities.alpha_modes[0];
         surface.configure(&self.renderer.device, &self.surface_config);
         self.surface = Some(surface);
     }

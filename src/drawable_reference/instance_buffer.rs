@@ -9,9 +9,11 @@ use super::DrawableReference;
 /// A buffer containing instances of a struct which will be drawn with a standard 6 vertex quad.
 pub struct InstanceBuffer<Instance> {
     instance_buffer: Buffer,
-    instance_count: u32,
+    pub instance_count: u32,
 
     previous_instance_count: u32,
+
+    pub frame_count: u32,
 
     _phantom: PhantomData<Instance>,
 }
@@ -20,7 +22,7 @@ impl<Instance: bytemuck::Pod> InstanceBuffer<Instance> {
     pub fn new(Renderer { device, .. }: &Renderer, name: &str) -> Self {
         let instance_buffer = device.create_buffer(&BufferDescriptor {
             label: Some(&format!("{} instance buffer", name)),
-            size: std::mem::size_of::<Instance>() as u64 * 100000,
+            size: std::mem::size_of::<Instance>() as u64 * 1000000,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -29,6 +31,7 @@ impl<Instance: bytemuck::Pod> InstanceBuffer<Instance> {
             instance_buffer,
             instance_count: 0,
             previous_instance_count: 0,
+            frame_count: 0,
             _phantom: PhantomData,
         }
     }
@@ -36,18 +39,22 @@ impl<Instance: bytemuck::Pod> InstanceBuffer<Instance> {
     pub fn start_frame(&mut self) {
         self.previous_instance_count = 0;
         self.instance_count = 0;
+        self.frame_count += 1;
     }
 
     pub fn upload(&mut self, instances: Vec<Instance>, queue: &Queue) {
-        let instance_data: &[u8] = bytemuck::cast_slice(&instances[..]);
+        if self.frame_count == 1 {
+            let instance_data: &[u8] = bytemuck::cast_slice(&instances[..]);
 
-        queue.write_buffer(
-            &self.instance_buffer,
-            std::mem::size_of::<Instance>() as u64 * self.previous_instance_count as u64,
-            instance_data,
-        );
+            queue.write_buffer(
+                &self.instance_buffer,
+                std::mem::size_of::<Instance>() as u64 * self.previous_instance_count as u64,
+                instance_data,
+            );
+        }
         self.instance_count += instances.len() as u32;
     }
+
 
     pub fn draw(&mut self, render_pass: &mut RenderPass<'_>) {
         render_pass.draw(0..6, self.previous_instance_count..self.instance_count);
