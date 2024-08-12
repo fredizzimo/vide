@@ -96,6 +96,7 @@ rust-embed = { workspace = true }
 serde = { workspace = true }
 serde_derive = { workspace = true }
 serde_json = { workspace = true }
+smallvec = "1.13.2"
 # Async runtime for testing
 smol = "1.2"
 # Used to make the Shaper thread safe

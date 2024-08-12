@@ -40,10 +40,10 @@ impl WinitRenderer {
             format: swapchain_format,
             width: size.width,
             height: size.height,
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::Mailbox,
             alpha_mode: swapchain_capabilities.alpha_modes[0],
             view_formats: vec![],
-            desired_maximum_frame_latency: 2,
+            desired_maximum_frame_latency: 1,
         };
 
         let shaders_reloaded = {
@@ -119,6 +119,7 @@ impl WinitRenderer {
 
                 {
                     profiling::scope!("present");
+                    self.window.pre_present_notify();
                     frame.present();
                 }
                 profiling::finish_frame!();

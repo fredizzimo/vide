@@ -326,8 +326,11 @@ impl Renderer {
 
         self.profiler.end_frame().unwrap();
 
-        self.profiler
-            .process_finished_frame(self.queue.get_timestamp_period());
+        { 
+            profiling::scope!("Finish GPU Profiling");
+            self.profiler
+                .process_finished_frame(self.queue.get_timestamp_period());
+        }
     }
 
     pub fn draw_mask(

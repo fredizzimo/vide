@@ -68,6 +68,7 @@ impl<Key: Eq + Hash, UserData: Clone> Atlas<Key, UserData> {
         key: Key,
         construct_image: impl FnOnce() -> ConstructResult<UserData>,
     ) -> Option<(UserData, Box2<i32>)> {
+        //profiling::scope!("lookup_or_upload");
         match self.lookup.get(&key) {
             Some(Some((user_data, alloc_id))) => {
                 let allocation_rectangle = self.allocator.get(*alloc_id);

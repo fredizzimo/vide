@@ -7,6 +7,7 @@ use parley::swash::{
     FontRef, GlyphId,
 };
 use wgpu::*;
+use smallvec::SmallVec;
 
 use crate::{
     drawable::Drawable,
@@ -55,38 +56,42 @@ impl GlyphState {
         glyph: &Glyph,
         glyph_run: &GlyphRun,
     ) -> Option<InstancedGlyph> {
-        profiling::scope!("Preparing glyph");
+        //profiling::scope!("Preparing glyph");
         // Create a font scaler for the given font and size
 
         let bottom_left = glyph_run.position + glyph.offset;
 
-        let glyph_key = GlyphKey::new(
+        let glyph_key = {
+            //profiling::scope!("GlyphKey");
+            GlyphKey::new(
             font_id,
             glyph.id,
             glyph_run.size,
             bottom_left,
-            glyph_run.synthesis.clone(),
-        );
-
-        let transform = if glyph_run.synthesis.skew != 0.0 {
-            Some(Transform::skew(
-                Angle::from_degrees(*glyph_run.synthesis.skew),
-                Angle::from_degrees(0.0),
-            ))
-        } else {
-            None
+            &glyph_run.normalized_coords,
+        )
         };
-
-        let embolden = if glyph_run.synthesis.embolden {
-            1.0
-        } else {
-            0.0
-        };
+        let offset = glyph_key.quantized_offset();
 
         // Get or find atlas allocation
         let ((placement, content), glyph_location) =
-            self.atlas.lookup_or_upload(queue, glyph_key.clone(), || {
+            self.atlas.lookup_or_upload(queue, glyph_key, || {
                 profiling::scope!("Rasterizing glyph");
+
+                let transform = if glyph_run.synthesis.skew != 0.0 {
+                    Some(Transform::skew(
+                        Angle::from_degrees(*glyph_run.synthesis.skew),
+                        Angle::from_degrees(0.0),
+                    ))
+                } else {
+                    None
+                };
+
+                let embolden = if glyph_run.synthesis.embolden {
+                    1.0
+                } else {
+                    0.0
+                };
                 let mut scaler = {
                     profiling::scope!("Creating font scaler");
                     self.scale_context
@@ -105,7 +110,7 @@ impl GlyphState {
                 // Select a subpixel format
                 .format(Format::Subpixel)
                 // Apply the fractional offset
-                .offset(glyph_key.quantized_offset())
+                .offset(offset)
                 .transform(transform)
                 .embolden(embolden)
                 // Render the image
@@ -257,7 +262,7 @@ struct GlyphKey {
     font_id: FontId,
     size: OrderedFloat<f32>,
     x_offset: SubpixelOffset,
-    synthesis: Synthesis,
+    normalized_coords: SmallVec<[i16; 4]>,
 }
 
 impl GlyphKey {
@@ -266,7 +271,7 @@ impl GlyphKey {
         glyph: GlyphId,
         size: f32,
         offset: Point2,
-        synthesis: Synthesis,
+        normalized_coords: &[i16],
     ) -> Self {
         let size = size.into();
         let x_offset = SubpixelOffset::quantize(offset.x);
@@ -275,7 +280,7 @@ impl GlyphKey {
             font_id,
             size,
             x_offset,
-            synthesis,
+            normalized_coords: normalized_coords.into(),
         }
     }
 
